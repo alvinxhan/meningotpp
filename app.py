@@ -91,9 +91,20 @@ sidebar = html.Div([
     html.Div(id='input-container1'),
     html.Div(id='input-container2'),
 
-    dbc.Label("Turnaround time (days)", style={"font-size":12}),
+    dbc.Label("Turnaround time (days) for RDT:", style={"font-size":12}),
     dcc.Slider(
         id="test_turnaround_time",
+        min=min(test_turnaround_time_arr),
+        max=max(test_turnaround_time_arr),
+        step=None,
+        marks={val:"%i"%(val) for i, val in enumerate(test_turnaround_time_arr)},
+        tooltip={"placement":"top", "always_visible":True},
+        value=test_turnaround_time_arr[0],
+    ),
+
+    dbc.Label("Turnaround time (days) for Pastorex:", style={"font-size":12}),
+    dcc.Slider(
+        id="pastorex_turnaround_time",
         min=min(test_turnaround_time_arr),
         max=max(test_turnaround_time_arr),
         step=None,
@@ -165,15 +176,14 @@ sidebar = html.Div([
 results_intro_text = '''
 ## Modelling to support rapid diagnostic development for meningitis
 
-This Dashboard shows the expected impact of a test and reactive vaccination campaign as well as the performance and costs of the rapid diagnostic test (RDT) used when applied to a **population of 1,000,000 individuals over a period of 6 months** (a single dry season). Use the menu on the left to explore how different disease, diagnostic and vaccination parameters can change the epidemic and testing outcomes.
+This Dashboard summarizes the expected impact and costs of using a rapid diagnostic test (RDT) to trigger reactive vaccination campaign for a **population of 1,000,000 individuals over a period of 24 weeks** (i.e. a single dry season lasting 6 months in the meningitis belt). Use the menu on the left to explore how different disease, diagnostic and vaccination parameters can change the epidemic and testing outcomes.
 
 Results shown here are based on a few key assumptions:
 - Epidemic intensity is calibrated to reflect similar invasive case rates as per the 2015 *Neisseria meningitidis* (*Nm*) serogroup C outbreak ([Sidikou et al. (2017)](https://doi.org/10.1016/S1473-3099(16)30253-5)). In other words, **results shown in this dashboard are based on a non-*Nm* serogroup A outbreak**.
 - The demography of the simulated population, which underlies the contact rates between individuals, is based on Niger.
 - Disease confirmation is based only on a single test using the RDT.
-- **Testing is performed for surveillance purposes to trigger reaction vaccination only (the ONLY intervention) and is NOT used for clinical management or non-vaccine based infection control**.
+- **Testing is performed to trigger reactive vaccination only (the ONLY intervention) and is NOT used for clinical management or non-vaccine based infection control**.
 - Reactive vaccination is only targeted at individuals aged between 0 and 29 years of age.
-
 '''
 
 methods_text1 = '''
@@ -208,6 +218,10 @@ The left plot below shows the average accuracy of the prevalence estimate as mea
 The right plot shows the expected probability of triggering a reactive vaccination campaign (i.e. cummulative positive cases meeting the reactive vaccination threshold). **The larger the probability, the more likely a reactive vaccination campaign will be triggered when using the RDT**.
 '''
 
+inset_text2 = '''
+The plot below shows the expected week during which the reactive vaccination threshold is met (i.e 5 or 10 cummulative positive test per 100,000 people). 24 epi-weeks were simulated. As such, if the computed expected week is on or after 24 weeks, the reactive vaccination campaign was not carried out.
+'''
+
 panel2_text = '''
 #### Testing outcomes and costs
 The plots below show the total number of tests administered for 1,000,000 individuals during a six-month period, the costs of testing per correct diagnosis, and the total testing costs incurred for different amount of samples tested. **Error whiskers in cost plots denotes the standard deviation around the expected value; the wider it is, the more uncertain the cost estimate**.
@@ -230,6 +244,15 @@ result_page = dbc.Container([
     dbc.Row(
        dcc.Loading(id='panel5',
         children=[dcc.Graph(id="fig_prev_prec", style={"width": "100%"})],
+        type='default'),
+       justify="center",
+       align="center",
+       style={"overflowX": "hidden", "position": "relative", "zIndex": 0},
+    ),
+    dcc.Markdown(children=inset_text2),
+    dbc.Row(
+       dcc.Loading(id='panel6',
+        children=[dcc.Graph(id="fig_vacc_day", style={"width": "100%"})],
         type='default'),
        justify="center",
        align="center",
@@ -430,9 +453,11 @@ def update_input_container2(fixed_par, display_option):
     Output('fig_costs_per_corr_diag', 'figure'),
     Output('fig_total_test_costs', 'figure'),
     Output('fig_prev_prec', 'figure'),
+    Output('fig_vacc_day', 'figure'),
     [Input('baseline_trans_multiplier', 'value'),
      Input('sus_per_inv', 'value'),
      Input('test_turnaround_time', 'value'),
+     Input('pastorex_turnaround_time', 'value'),
      Input('cost_per_test', 'value'),
      Input('cost_per_pastorex', 'value'),
      Input('react_vacc_threshold', 'value'),
@@ -441,18 +466,18 @@ def update_input_container2(fixed_par, display_option):
      Input('par2', 'value'),
      Input('ini_react_vacc_combo', 'value')],
     State('display_option', 'value'))
-def update_output(baseline_trans_multiplier, sus_per_inv, test_turnaround_time, cost_per_test, cost_per_pastorex, react_vacc_threshold, react_vacc_turnaround_time, par1, par2, ini_react_vacc_combo, display_option):
+def update_output(baseline_trans_multiplier, sus_per_inv, test_turnaround_time, pastorex_turnaround_time, cost_per_test, cost_per_pastorex, react_vacc_threshold, react_vacc_turnaround_time, par1, par2, ini_react_vacc_combo, display_option):
 
     if display_option == 'fixss':
         # generate output fixing either sensitivity or specificity
         par2 = par2/100
-        fig_invdea, fig_n_tests, fig_costs_per_corr_diag, fig_total_test_costs, fig_prev_prec = generate_fixss_page(baseline_trans_multiplier, sus_per_inv, test_turnaround_time, cost_per_test, cost_per_pastorex, react_vacc_threshold, react_vacc_turnaround_time, par1, par2, ini_react_vacc_combo)
+        fig_invdea, fig_n_tests, fig_costs_per_corr_diag, fig_total_test_costs, fig_prev_prec, fig_vacc_day = generate_fixss_page(baseline_trans_multiplier, sus_per_inv, test_turnaround_time, pastorex_turnaround_time, cost_per_test, cost_per_pastorex, react_vacc_threshold, react_vacc_turnaround_time, par1, par2, ini_react_vacc_combo)
 
     #elif display_option == 'compss':
-    return fig_invdea, fig_n_tests, fig_costs_per_corr_diag, fig_total_test_costs, fig_prev_prec
+    return fig_invdea, fig_n_tests, fig_costs_per_corr_diag, fig_total_test_costs, fig_prev_prec, fig_vacc_day
 
 # generate output fixing either sensitivity or specificity
-def generate_fixss_page(baseline_trans_multiplier, sus_per_inv, test_turnaround_time, cost_per_test, cost_per_pastorex, react_vacc_threshold, react_vacc_turnaround_time, fixed_par, fixed_val, ini_react_vacc_combo):
+def generate_fixss_page(baseline_trans_multiplier, sus_per_inv, test_turnaround_time, pastorex_turnaround_time, cost_per_test, cost_per_pastorex, react_vacc_threshold, react_vacc_turnaround_time, fixed_par, fixed_val, ini_react_vacc_combo):
 
     ## ------ SUMMARIZE RESULTS ------ ##
     ini_vacc_prop, react_vacc_prop = list(map(lambda x: int(x)/100, ini_react_vacc_combo.split('-')))
@@ -461,20 +486,22 @@ def generate_fixss_page(baseline_trans_multiplier, sus_per_inv, test_turnaround_
     filtered_par_df = filtered_par_df[filtered_par_df['sus_per_inv'] == sus_per_inv]
     # get baseline par idx
     base_par_idx = filtered_par_df[filtered_par_df['testing_bool']<1].index[0]
-    # filter testing
-    filtered_par_df = filtered_par_df[filtered_par_df['test_turnaround_time'] == test_turnaround_time]
     # filter vaccination
     filtered_par_df = filtered_par_df[np.isclose(filtered_par_df['ini_vacc_prop'], ini_vacc_prop)]
     filtered_par_df = filtered_par_df[np.isclose(filtered_par_df['react_vacc_prop'], react_vacc_prop)]
     filtered_par_df = filtered_par_df[filtered_par_df['react_vacc_threshold'] == react_vacc_threshold]
     filtered_par_df = filtered_par_df[filtered_par_df['react_vacc_turnaround_time'] == react_vacc_turnaround_time]
 
-    # filter for pastorex and fixed par
+    # filter for pastorex (fixed par and turnaround time)
     if fixed_par == 'test_sens':
         pastorex_par_df = filtered_par_df[np.isclose(filtered_par_df[fixed_par], pastorex_sens)]
     else:
         pastorex_par_df = filtered_par_df[np.isclose(filtered_par_df[fixed_par], pastorex_spec)]
+    pastorex_par_df = pastorex_par_df[pastorex_par_df['test_turnaround_time'] == pastorex_turnaround_time]
+
+    # filter for RDT (fixed par and turnaround time)
     filtered_par_df = filtered_par_df[np.isclose(filtered_par_df[fixed_par], fixed_val)]
+    filtered_par_df = filtered_par_df[filtered_par_df['test_turnaround_time'] == test_turnaround_time]
 
     # extract result df from master result df
     base_result_df = master_result_df.loc[base_par_idx]
@@ -581,10 +608,12 @@ def generate_fixss_page(baseline_trans_multiplier, sus_per_inv, test_turnaround_
 
             fig_invdea.add_trace(
                 go.Scatter(
-                    x=[60, 100],
-                    y=[anno_y, anno_y],
+                    x=[60, 80, 100],
+                    y=[anno_y, anno_y, anno_y],
                     mode='lines',
                     line=dict(color=diag_cmap['Pastorex'][j], width=2, dash='dash'),
+                    hovertemplate='%{text}<extra></extra>',
+                    text=["Pastorex: %i%% expected %s averted"%(anno_y, 'invasive cases' if i == 0 else 'deaths')] * 3,
                     name='%i%% (Pastorex)'%(100*test_receptiveness),
                     showlegend=True if i == 1 else False,
                 ),
@@ -612,8 +641,9 @@ def generate_fixss_page(baseline_trans_multiplier, sus_per_inv, test_turnaround_
               showarrow=False,
               xref="paper",
               yref="paper",
-              x=0.1,
-              y=1.1
+              x=0.225,
+              y=1.15,
+              xanchor='center'
           ),
           dict(
               text="Total deaths averted",
@@ -621,8 +651,9 @@ def generate_fixss_page(baseline_trans_multiplier, sus_per_inv, test_turnaround_
               showarrow=False,
               xref="paper",
               yref="paper",
-              x=0.85,
-              y=1.1
+              x=0.775,
+              y=1.15,
+              xanchor='center'
           )
         ] + annotation_list,
         # legend
@@ -649,7 +680,7 @@ def generate_fixss_page(baseline_trans_multiplier, sus_per_inv, test_turnaround_
                  linecolor='black'),
         yaxis1=dict(title=r"Proportion of invasive cases averted (%)",
                  #range=[0, i_to_ymax[0]],
-                 range=[0, 100],
+                 range=[-5, 100],
                  showgrid=False,
                  zeroline=False,
                  showline=True,
@@ -657,7 +688,7 @@ def generate_fixss_page(baseline_trans_multiplier, sus_per_inv, test_turnaround_
                  linecolor='black'),
         yaxis2=dict(title=r"Proportion of deaths averted (%)",
                  #range=[0, i_to_ymax[1]],
-                 range=[0, 100],
+                 range=[-5, 100],
                  showgrid=False,
                  zeroline=False,
                  showline=True,
@@ -667,7 +698,7 @@ def generate_fixss_page(baseline_trans_multiplier, sus_per_inv, test_turnaround_
 
     ## ------ FIGURE 5: Total number of tests differentiated by # of correct in and incorrect diagnoses ----- ##
     # cmaps
-    fig_prev_prec = make_subplots(rows=1, cols=2, column_widths=[.5, .5])
+    fig_prev_prec = make_subplots(rows=1, cols=2)
 
     ## --- prevalence estimate -- ##
     # each line = one test_receptiveness value
@@ -740,7 +771,7 @@ def generate_fixss_page(baseline_trans_multiplier, sus_per_inv, test_turnaround_
         if np.mean(Y0) < 10:
             anno_y = 0.
 
-        fig_prev_prec.add_shape(
+        """fig_prev_prec.add_shape(
             type='line',
             x0=60, # x-axis value at which to draw the line
             x1=100, # x-axis value at which to end the line
@@ -748,6 +779,20 @@ def generate_fixss_page(baseline_trans_multiplier, sus_per_inv, test_turnaround_
             y1=anno_y, # y-axis value at which to end the line
             line=dict(color=diag_cmap['Pastorex'][j], width=2, dash='dash'),
             row = 1, col = 1
+        )"""
+
+        fig_prev_prec.add_trace(
+            go.Scatter(
+                x=[60, 80, 100],
+                y=[anno_y, anno_y, anno_y],
+                mode='lines',
+                line=dict(color=diag_cmap['Pastorex'][j], width=2, dash='dash'),
+                name='%i%% (Pastorex)'%(100*test_receptiveness),
+                hovertemplate='%{text}<extra></extra>',
+                text=["Pastorex: mean RMSE = %i%%"%(int(anno_y))] * 3,
+                showlegend=False,
+            ),
+            row=1, col=1
         )
         """
         annotation_list.append(dict(
@@ -790,6 +835,7 @@ def generate_fixss_page(baseline_trans_multiplier, sus_per_inv, test_turnaround_
           )
 
         # add pastorex reference as a line plot
+    for j, test_receptiveness in enumerate(np.sort(ana_result_df['test_receptiveness'].unique())):
         # filter for test_receptiveness
         curr_pastorex_df = pastorex_df[np.isclose(pastorex_df['test_receptiveness'], test_receptiveness)]
         plot_x = np.sort(curr_pastorex_df[var_par].unique())
@@ -803,32 +849,17 @@ def generate_fixss_page(baseline_trans_multiplier, sus_per_inv, test_turnaround_
 
         fig_prev_prec.add_trace(
             go.Scatter(
-                x=[60, 100],
-                y=[anno_y, anno_y],
+                x=[60, 80, 100],
+                y=[anno_y, anno_y, anno_y],
                 mode='lines',
                 line=dict(color=diag_cmap['Pastorex'][j], width=2, dash='dash'),
                 name='%i%% (Pastorex)'%(100*test_receptiveness),
+                hovertemplate='%{text}<extra></extra>',
+                text=["Pastorex: %i%% probability"%(int(anno_y))] * 3,
                 showlegend=True,
             ),
             row=1, col=2
         )
-        """
-        annotation_list.append(dict(
-            x=100,
-            y=anno_y-2.75,
-            xanchor='right',
-            text=f"Pastorex: {anno_y:.1f}%",
-            showarrow=False,
-            xref='x2',
-            yref='y2',
-        ))
-        #"""
-
-    # reorder traces
-    traces_idx = np.arange(len(fig_prev_prec.data))
-    line_traces = traces_idx[traces_idx%2==0]
-    shading_traces = traces_idx[~traces_idx%2==0]
-    fig_prev_prec.data = tuple([fig_prev_prec.data[idx] for idx in line_traces] + [fig_prev_prec.data[idx] for idx in shading_traces])
 
     fig_prev_prec.update_layout(
         # Set the titles for each subplot
@@ -840,7 +871,7 @@ def generate_fixss_page(baseline_trans_multiplier, sus_per_inv, test_turnaround_
               xref="paper",
               yref="paper",
               x=0.225,
-              y=1.1,
+              y=1.15,
               xanchor='center'
           ),
           dict(
@@ -850,7 +881,7 @@ def generate_fixss_page(baseline_trans_multiplier, sus_per_inv, test_turnaround_
               xref="paper",
               yref="paper",
               x=0.775,
-              y=1.1,
+              y=1.15,
               xanchor='center'
           )
         ] + annotation_list,
@@ -889,6 +920,199 @@ def generate_fixss_page(baseline_trans_multiplier, sus_per_inv, test_turnaround_
         yaxis2=dict(title="Probability (%)",
                  #range=[0, i_to_ymax[0]],
                  range=[0, 100],
+                 showgrid=False,
+                 zeroline=False,
+                 showline=True,
+                 linewidth=1,
+                 linecolor='black'),
+        )
+
+    ## ------ FIGURE 6: day when reactive vaccination is triggered ------ ##
+    fig_vacc_day = make_subplots(rows=1, cols=2)
+    """Ylabel = 'mu_invasive_per_week'
+    # each line = one test_receptiveness value
+    for j, test_receptiveness in enumerate(np.sort(ana_result_df['test_receptiveness'].unique())):
+        # filter for test_receptiveness
+        curr_ana_result_df = ana_result_df[np.isclose(ana_result_df['test_receptiveness'], test_receptiveness)]
+        # get X and Y data
+        X = np.around(curr_ana_result_df[var_par].to_numpy()*100, 0)
+        Y = curr_ana_result_df[Ylabel].to_numpy().reshape(len(np.unique(X)), -1) # reshape Y based on each row = one unique X value
+
+        # calculate plotting coordinates
+        #vacc_trigger_mask = curr_ana_result_df['vacc_trigger_day'].to_numpy().reshape(len(np.unique(X)), -1) # vaccination must be triggered
+        plot_x, plot_y, plot_y_lb, plot_y_ub = apputils.get_linregress_plot_coords(X, Y, method='absolute')
+        ci = (plot_y_ub-plot_y_lb)/(2 * abs(stats.norm.ppf((1 - .95) / 2)))
+
+        hover_text = ['X: %s = '%("Sensitivity" if var_par == 'test_sens' else 'Specificity') + '%i%%<br>Y: '%(plot_x[k]) + f"{plot_y[k]:.0f}<span>&#177;</span>{ci[k]:.0f} cases per week" for k in np.arange(len(plot_y))]
+        fig_vacc_day.add_trace(
+            go.Bar(
+                x=plot_x,
+                y=plot_y,
+                error_y=dict(
+                    type='data',
+                    array=ci,
+                    visible=True
+                ),
+                name='%i%%'%(100*test_receptiveness),
+                marker_color=hex_cmap[j],
+                hovertext=hover_text,
+                hoverinfo='text',
+                showlegend=False,
+            ),
+            row=1, col=1,
+          )
+
+    for j, test_receptiveness in enumerate(np.sort(ana_result_df['test_receptiveness'].unique())):
+        # add pastorex reference as a line plot
+        # filter for test_receptiveness
+        curr_pastorex_df = pastorex_df[np.isclose(pastorex_df['test_receptiveness'], test_receptiveness)]
+        # get X and Y data
+        X = np.around(curr_pastorex_df[var_par].to_numpy()*100, 0)
+        pastorex_Y = curr_pastorex_df[Ylabel].to_numpy().reshape(len(np.unique(X)), -1) # reshape Y based on each row = one unique X value
+        # calculate plotting coordinates
+        #vacc_trigger_mask = curr_ana_result_df['vacc_trigger_day'].to_numpy().reshape(len(np.unique(X)), -1) # vaccination must be triggered
+        pastorex_Y_result = apputils.get_linregress_plot_coords(X, pastorex_Y, method='absolute')[1]
+        pastorex_var_val = pastorex_sens if var_par == 'test_sens' else pastorex_spec
+        anno_y = pastorex_Y_result[np.isclose(plot_x, 100*pastorex_var_val)][0]
+
+        fig_vacc_day.add_trace(
+            go.Scatter(
+                x=[60, 80, 100],
+                y=[anno_y, anno_y, anno_y],
+                mode='lines',
+                line=dict(color=diag_cmap['Pastorex'][j], width=2, dash='dash'),
+                name='%i%% (Pastorex)'%(100*test_receptiveness),
+                hovertemplate='%{text}<extra></extra>',
+                text=["Pastorex: %i week"%(int(anno_y))] * 3,
+                showlegend=False,
+            ),
+            row=1, col=1
+        )"""
+
+    #############
+
+    Ylabel = 'vacc_trigger_day'
+    # each line = one test_receptiveness value
+    for j, test_receptiveness in enumerate(np.sort(ana_result_df['test_receptiveness'].unique())):
+        # filter for test_receptiveness
+        curr_ana_result_df = ana_result_df[np.isclose(ana_result_df['test_receptiveness'], test_receptiveness)]
+        # get X and Y data
+        X = np.around(curr_ana_result_df[var_par].to_numpy()*100, 0)
+        Y = curr_ana_result_df[Ylabel].to_numpy().reshape(len(np.unique(X)), -1) # reshape Y based on each row = one unique X value
+        Y[Y<0] = 180
+        Y = Y/7
+        # calculate plotting coordinates
+        #vacc_trigger_mask = curr_ana_result_df['vacc_trigger_day'].to_numpy().reshape(len(np.unique(X)), -1) # vaccination must be triggered
+        plot_x, plot_y, plot_y_lb, plot_y_ub = apputils.get_linregress_plot_coords(X, Y, method='absolute')
+        ci = (plot_y_ub-plot_y_lb)/(2 * abs(stats.norm.ppf((1 - .95) / 2)))
+
+        hover_text = ['X: %s = '%("Sensitivity" if var_par == 'test_sens' else 'Specificity') + '%i%%<br>Y: '%(plot_x[k]) + f"{plot_y[k]:.0f}<span>&#177;</span>{ci[k]:.0f} week" for k in np.arange(len(plot_y))]
+        fig_vacc_day.add_trace(
+            go.Bar(
+                x=plot_x,
+                y=plot_y,
+                error_y=dict(
+                    type='data',
+                    array=ci,
+                    visible=True
+                ),
+                name='%i%%'%(100*test_receptiveness),
+                marker_color=hex_cmap[j],
+                hovertext=hover_text,
+                hoverinfo='text',
+                showlegend=True,
+            ),
+            row=1, col=1,
+          )
+
+    for j, test_receptiveness in enumerate(np.sort(ana_result_df['test_receptiveness'].unique())):
+        # add pastorex reference as a line plot
+        # filter for test_receptiveness
+        curr_pastorex_df = pastorex_df[np.isclose(pastorex_df['test_receptiveness'], test_receptiveness)]
+        # get X and Y data
+        X = np.around(curr_pastorex_df[var_par].to_numpy()*100, 0)
+        pastorex_Y = curr_pastorex_df[Ylabel].to_numpy().reshape(len(np.unique(X)), -1) # reshape Y based on each row = one unique X value
+        pastorex_Y[pastorex_Y<0] = 180
+        pastorex_Y = pastorex_Y/7
+        # calculate plotting coordinates
+        #vacc_trigger_mask = curr_ana_result_df['vacc_trigger_day'].to_numpy().reshape(len(np.unique(X)), -1) # vaccination must be triggered
+        pastorex_Y_result = apputils.get_linregress_plot_coords(X, pastorex_Y, method='absolute')[1]
+        pastorex_var_val = pastorex_sens if var_par == 'test_sens' else pastorex_spec
+        anno_y = pastorex_Y_result[np.isclose(plot_x, 100*pastorex_var_val)][0]
+
+        fig_vacc_day.add_trace(
+            go.Scatter(
+                x=[60, 80, 100],
+                y=[anno_y, anno_y, anno_y],
+                mode='lines',
+                line=dict(color=diag_cmap['Pastorex'][j], width=2, dash='dash'),
+                name='%i%% (Pastorex)'%(100*test_receptiveness),
+                hovertemplate='%{text}<extra></extra>',
+                text=["Pastorex: %i week"%(int(anno_y))] * 3,
+                showlegend=True,
+            ),
+            row=1, col=1
+        )
+
+    fig_vacc_day.add_trace(
+        go.Scatter(
+            x=[60, 80, 100],
+            y=[25, 25, 25],
+            mode='lines',
+            line=dict(color='#404040', width=1, dash='dash'),
+            name='Last simulated epi week',
+            hovertemplate='%{text}<extra></extra>',
+            text=["Last simulated epi week"] * 3,
+            showlegend=True,
+        ),
+        row=1, col=1,
+      )
+
+    """
+    dict(
+        text="Expected no. of invasive cases per week",
+        font=dict(size=14),
+        showarrow=False,
+        xref="paper",
+        yref="paper",
+        x=0.225,
+        y=1.15,
+        xanchor='center'
+    ),
+    """
+    fig_vacc_day.update_layout(
+        # Set the titles for each subplot
+        annotations=[
+          dict(
+              text="Average week when reactive<br>vaccination threshold was met",
+              font=dict(size=14),
+              showarrow=False,
+              xref="paper",
+              yref="paper",
+              x=0.225,
+              y=1.25,
+              xanchor='center'
+          )
+        ], #+ annotation_list,
+        # plot background
+        plot_bgcolor='rgba(0,0,0,0)',  # set plot background color to transparent
+        barmode='group',
+        # legend
+        legend_title="Proportion of<br>samples tested",
+        legend_title_font_size=14,
+        # axes
+        xaxis1=dict(title='Sensitivity (%)' if var_par == 'test_sens' else 'Specificity (%)',
+                 tickmode='array',
+                 tickvals=100*np.sort(ana_result_df[var_par].unique()),
+                 showgrid=False,
+                 zeroline=False,
+                 showline=True,
+                 linewidth=1,
+                 linecolor='black'),
+        yaxis1=dict(title=r"Time (week)",
+                 #range=[0, i_to_ymax[0]],
+                 #range=[0, ymax*1.05],
+                 rangemode = "nonnegative",
                  showgrid=False,
                  zeroline=False,
                  showline=True,
@@ -1103,7 +1327,7 @@ def generate_fixss_page(baseline_trans_multiplier, sus_per_inv, test_turnaround_
               xref="paper",
               yref="paper",
               x=0.03 + j*0.47,
-              y=1.2,
+              y=1.15,
           )
           for j, test_receptiveness in enumerate(np.sort(ana_result_df['test_receptiveness'].unique()))
         ] + annotation_list,
@@ -1262,7 +1486,7 @@ def generate_fixss_page(baseline_trans_multiplier, sus_per_inv, test_turnaround_
                  linecolor='black'),
     )
 
-    return fig_invdea, fig_n_tests, fig_costs_per_corr_diag, fig_total_test_costs, fig_prev_prec
+    return fig_invdea, fig_n_tests, fig_costs_per_corr_diag, fig_total_test_costs, fig_prev_prec, fig_vacc_day
 
 
 if __name__ == '__main__':

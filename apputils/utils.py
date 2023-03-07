@@ -122,6 +122,7 @@ def parse_sim_results(fpath, **kwargs):
     test_results = arr['test_results']
     # compute total number of invasive cases and deaths
     n_invasive = new_epi_arr[:,:,1].sum()
+    mu_invasive_per_week = new_epi_arr[:,:,1].mean()
     n_deaths = new_epi_arr[:,:,-1].sum()
     # compute test performance
     n_tests = test_results.sum()
@@ -175,6 +176,7 @@ def parse_sim_results(fpath, **kwargs):
         'test_spec':kwargs['test_spec'],
         'test_receptiveness':kwargs['test_receptiveness'],
         'n_invasive':n_invasive,
+        'mu_invasive_per_week':mu_invasive_per_week,
         'n_deaths':n_deaths,
         'ppv':ppv, 'npv':npv,
         'n_corr_diag':n_corr_diag, 'n_incorr_diag':n_incorr_diag,

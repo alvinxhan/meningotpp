@@ -1,5 +1,7 @@
 venv
+results
 apputils/__pycache__
 *.pyc
+*.ipynb
 .DS_Store
 .env
